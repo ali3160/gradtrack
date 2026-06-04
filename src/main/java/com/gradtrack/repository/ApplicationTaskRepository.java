@@ -14,6 +14,8 @@ public interface ApplicationTaskRepository extends JpaRepository <ApplicationTas
     long countByStatus(TaskStatus status);
 
     long countByDueDate(LocalDate dueDate);
+    long countByDueDateAndStatusNot(LocalDate dueDate, TaskStatus status);
+
 
     long countByDueDateBeforeAndStatusNot(LocalDate date, TaskStatus status);
 

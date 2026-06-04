@@ -66,7 +66,7 @@ public class DashboardService {
         long completed = taskRepository.countByStatus(TaskStatus.COMPLETED);
         long cancelled = taskRepository.countByStatus(TaskStatus.CANCELLED);
 
-        long dueToday = taskRepository.countByDueDate(today);
+        long dueToday = taskRepository.countByDueDateAndStatusNot(today, TaskStatus.COMPLETED);
 
         long overdue = taskRepository.countByDueDateBeforeAndStatusNot(
                 today,
