@@ -74,7 +74,7 @@ public class DashboardService {
         );
 
         long upcoming = taskRepository.countByDueDateBetweenAndStatusNot(
-                today,
+                today.plusDays(1),
                 sevenDaysFromNow,
                 TaskStatus.COMPLETED
         );
