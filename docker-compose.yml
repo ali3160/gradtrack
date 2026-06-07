@@ -1,0 +1,25 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: gradtrack-postgres
+    environment:
+      POSTGRES_DB: gradtrack
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Mosty320
+    ports:
+      - "5433:5432"
+    volumes:
+      - gradtrack_postgres_data:/var/lib/postgresql/data
+
+  app:
+    build: .
+    container_name: gradtrack-api
+    depends_on:
+      - postgres
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    ports:
+      - "8080:8080"
+
+volumes:
+  gradtrack_postgres_data:
