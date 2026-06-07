@@ -7,15 +7,21 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: Mosty320
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - gradtrack_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U postgres -d gradtrack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   app:
     build: .
     container_name: gradtrack-api
-    depends_on:
-      - postgres
+    depends_on:interview
+      postgres:
+          condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
     ports:
