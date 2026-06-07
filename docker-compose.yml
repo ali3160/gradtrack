@@ -19,7 +19,7 @@ services:
   app:
     build: .
     container_name: gradtrack-api
-    depends_on:interview
+    depends_on:
       postgres:
           condition: service_healthy
     environment:
