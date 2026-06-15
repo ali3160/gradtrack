@@ -4,7 +4,6 @@ import com.gradtrack.dto.ApplicationTaskPatchRequest;
 import com.gradtrack.dto.ApplicationTaskRequest;
 import com.gradtrack.dto.ApplicationTaskResponse;
 import com.gradtrack.exception.ApplicationTaskNotFoundException;
-import com.gradtrack.exception.JobApplicationNotFoundException;
 import com.gradtrack.model.ActivityType;
 import com.gradtrack.model.ApplicationTask;
 import com.gradtrack.model.JobApplication;
@@ -19,19 +18,18 @@ import java.util.List;
 public class ApplicationTaskService {
 
     private final ApplicationTaskRepository taskRepository;
-    private final JobApplicationRepository jobApplicationRepository;
     private final ApplicationActivityService activityService;
+    private final JobApplicationService jobApplicationService;
 
-    public ApplicationTaskService(ApplicationTaskRepository taskRepository, JobApplicationRepository jobApplicationRepository, ApplicationActivityService activityService) {
+    public ApplicationTaskService(ApplicationTaskRepository taskRepository , ApplicationActivityService activityService, JobApplicationService jobApplicationService) {
         this.taskRepository = taskRepository;
-        this.jobApplicationRepository = jobApplicationRepository;
         this.activityService = activityService;
+        this.jobApplicationService = jobApplicationService;
     }
 
     public ApplicationTaskResponse createTask(Long applicationId, ApplicationTaskRequest request){
 
-        JobApplication application = jobApplicationRepository.findById(applicationId)
-                .orElseThrow(()-> new JobApplicationNotFoundException(applicationId));
+        JobApplication application = jobApplicationService.findApplicationOrThrow(applicationId);
 
         ApplicationTask task = new ApplicationTask();
         task.setJobApplication(application);
@@ -52,19 +50,15 @@ public class ApplicationTaskService {
     }
 
     public List<ApplicationTaskResponse> getTasksForApplication(Long applicationId) {
-        if (!jobApplicationRepository.existsById(applicationId)) {
-            throw new JobApplicationNotFoundException(applicationId);
-        }
-
-        return taskRepository.findByJobApplicationIdOrderByDueDateAsc(applicationId)
+        JobApplication application = jobApplicationService.findApplicationOrThrow(applicationId);
+        return taskRepository.findByJobApplicationOrderByDueDateAsc(application)
                 .stream()
                 .map(this::mapToResponse)
                 .toList();
     }
 
     public ApplicationTaskResponse patchTask(Long taskId, ApplicationTaskPatchRequest request) {
-        ApplicationTask task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ApplicationTaskNotFoundException(taskId));
+        ApplicationTask task = findApplicationTaskForCurrentUser(taskId);
 
         TaskStatus oldStatus = task.getStatus();
 
@@ -96,10 +90,10 @@ public class ApplicationTaskService {
 
         return mapToResponse(updatedTask);
     }
-    public void deleteTask(Long taskId) {
-        ApplicationTask task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new ApplicationTaskNotFoundException(taskId));
 
+
+    public void deleteTask(Long taskId) {
+        ApplicationTask task = findApplicationTaskForCurrentUser(taskId);
         activityService.recordActivity(
                 task.getJobApplication(),
                 ActivityType.NOTE_UPDATED,
@@ -110,6 +104,14 @@ public class ApplicationTaskService {
     }
 
 
+    private ApplicationTask findApplicationTaskForCurrentUser (long taskId){
+        ApplicationTask task  = taskRepository.findById(taskId)
+                .orElseThrow(() -> new ApplicationTaskNotFoundException(taskId));
+
+        long applicationId = task.getJobApplication().getId();
+        jobApplicationService.findApplicationOrThrow(applicationId);
+        return task;
+    }
 
     private ApplicationTaskResponse mapToResponse(ApplicationTask task) {
         return new ApplicationTaskResponse(

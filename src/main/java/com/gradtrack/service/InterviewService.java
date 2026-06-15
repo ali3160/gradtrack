@@ -4,7 +4,6 @@ import com.gradtrack.dto.InterviewPatchRequest;
 import com.gradtrack.dto.InterviewRequest;
 import com.gradtrack.dto.InterviewResponse;
 import com.gradtrack.exception.InterviewNotFoundException;
-import com.gradtrack.exception.JobApplicationNotFoundException;
 import com.gradtrack.model.*;
 import com.gradtrack.repository.InterviewRepository;
 import com.gradtrack.repository.JobApplicationRepository;
@@ -19,21 +18,23 @@ public class InterviewService {
     private final InterviewRepository interviewRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final ApplicationActivityService activityService;
+    private final JobApplicationService jobApplicationService;
+
 
     public InterviewService(InterviewRepository interviewRepository,
-                            JobApplicationRepository jobApplicationRepository, ApplicationActivityService activityService) {
+                            JobApplicationRepository jobApplicationRepository, ApplicationActivityService activityService, JobApplicationService jobApplicationService) {
         this.interviewRepository = interviewRepository;
         this.jobApplicationRepository = jobApplicationRepository;
         this.activityService = activityService;
+        this.jobApplicationService = jobApplicationService;
     }
 
     public InterviewResponse createInterview(long applicationId , InterviewRequest request){
 
-        JobApplication application = jobApplicationRepository.findById(applicationId).orElseThrow(()->new JobApplicationNotFoundException(applicationId));
+        JobApplication application = jobApplicationService.findApplicationOrThrow(applicationId);
 
         Interview interview = new Interview();
         interview.setJobApplication(application);
-        interview.setInterviewDateTime(request.getInterviewDateTime());
         interview.setInterviewDateTime(request.getInterviewDateTime());
         interview.setInterviewType(request.getInterviewType());
 
@@ -61,25 +62,21 @@ public class InterviewService {
 
     public List<InterviewResponse> getInterviewsForApplication(Long applicationId){
 
-        if (!jobApplicationRepository.existsById(applicationId)){
-            throw new JobApplicationNotFoundException(applicationId);
-        }
+        JobApplication application = jobApplicationService.findApplicationOrThrow(applicationId);
 
-        List <Interview> interviews = interviewRepository.findByJobApplicationId(applicationId);
+        List <Interview> interviews = interviewRepository.findByJobApplication(application);
 
         return interviews.stream().map(this::mapToResponse).toList();
 
     }
 
     public InterviewResponse getInterviewById(Long interviewId){
-        Interview interview = interviewRepository.findById(interviewId)
-                .orElseThrow(()->new InterviewNotFoundException(interviewId));
+        Interview interview  = findInterviewForCurrentUser(interviewId);
         return mapToResponse(interview);
     }
 
     public void deleteInterview (Long interviewId){
-        Interview interview = interviewRepository.findById(interviewId)
-                .orElseThrow(() -> new InterviewNotFoundException(interviewId));
+        Interview interview = findInterviewForCurrentUser(interviewId);
 
         interviewRepository.delete(interview);
     }
@@ -87,7 +84,7 @@ public class InterviewService {
 
     public InterviewResponse updateInterview (Long interviewId,InterviewRequest request){
 
-        Interview interview = interviewRepository.findById(interviewId).orElseThrow(()-> new InterviewNotFoundException(interviewId));
+        Interview interview = findInterviewForCurrentUser(interviewId);
 
         InterviewOutcome oldOutcome = interview.getOutcome();
 
@@ -103,7 +100,7 @@ public class InterviewService {
 
         Interview updatedInterview = interviewRepository.save(interview);
 
-        if (oldOutcome != request.getOutcome()){
+        if (oldOutcome != updatedInterview.getOutcome()){
             activityService.recordActivity(interview.getJobApplication(),
                     ActivityType.INTERVIEW_OUTCOME_UPDATED,
                     "Interview outcome updated from " + oldOutcome + " to " + updatedInterview.getOutcome());
@@ -120,8 +117,7 @@ public class InterviewService {
 
    public InterviewResponse patchInterview(Long interviewId , InterviewPatchRequest request){
 
-       Interview interview = interviewRepository.findById(interviewId)
-               .orElseThrow(() -> new InterviewNotFoundException(interviewId));
+       Interview interview = findInterviewForCurrentUser(interviewId);
 
        InterviewOutcome oldOutcome = interview.getOutcome();
 
@@ -147,7 +143,7 @@ public class InterviewService {
 
        Interview updatedInterview = interviewRepository.save(interview);
 
-       if (oldOutcome != request.getOutcome()){
+       if (oldOutcome != updatedInterview.getOutcome()){
            activityService.recordActivity(interview.getJobApplication(),
                    ActivityType.INTERVIEW_OUTCOME_UPDATED,
                    "Interview outcome updated from " + oldOutcome + " to " + updatedInterview.getOutcome());
@@ -162,7 +158,15 @@ public class InterviewService {
    }
 
 
+    private Interview findInterviewForCurrentUser(Long interviewId){
+        Interview interview = interviewRepository.findById(interviewId)
+                .orElseThrow(()-> new InterviewNotFoundException(interviewId));
 
+        Long applicationId   = interview.getJobApplication().getId();
+        jobApplicationService.findApplicationOrThrow(applicationId );
+
+        return interview;
+    }
 
 
 

@@ -30,6 +30,18 @@ public class JobApplication {
     @Column(length = 1000)
     private String notes;
 
+    public AppUser getAppUser() {
+        return appUser;
+    }
+
+    public void setAppUser(AppUser appUser) {
+        this.appUser = appUser;
+    }
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "app_user_id", nullable = false)
+    private AppUser appUser;
+
     public JobApplication(){};
 
     public JobApplication(String roleTitle, String companyName, Long id, String salary, String location, String jobUrl, ApplicationStatus status, LocalDate applicationDate, LocalDate deadline, String notes) {
